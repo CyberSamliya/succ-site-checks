@@ -1,0 +1,36 @@
+name: Scheduled website checks
+on:
+  schedule:
+    - cron: '7,22,37,52 * * * *'   # every 15 minutes, off the busy top of the hour
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: checks
+  cancel-in-progress: false
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Fetch the previous status
+        run: curl -fsS "https://raw.githubusercontent.com/${{ github.repository }}/status/status.json" -o previous-status.json || echo '{}' > previous-status.json
+      - name: Check the websites
+        env:
+          SITES_JSON: ${{ secrets.SITES_JSON }}
+          ALERT_WEBHOOK: ${{ secrets.ALERT_WEBHOOK }}
+        run: node check.mjs
+      - name: Publish the status file
+        if: always()
+        run: |
+          test -f status.json || exit 0
+          mkdir out && cp status.json out/ && cd out
+          git init -q -b status
+          git config user.name "site-checks"
+          git config user.email "site-checks@users.noreply.github.com"
+          git add status.json && git commit -q -m "Status update"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" status
