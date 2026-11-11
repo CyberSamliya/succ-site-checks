@@ -19,7 +19,9 @@ jobs:
           node-version: 22
       - name: Fetch the previous status
         # Read through the API (not the cached raw address) so back-to-back runs see the latest status.
-        run: curl -fsS -H "Authorization: Bearer ${{ github.token }}" -H "Accept: application/vnd.github.raw" "https://api.github.com/repos/${{ github.repository }}/contents/status.json?ref=status" -o previous-status.json || echo '{}' > previous-status.json
+        # Block scalar: a one-line plain value can't contain ": " (it made the whole file invalid YAML).
+        run: |
+          curl -fsS -H "Authorization: Bearer ${{ github.token }}" -H "Accept: application/vnd.github.raw" "https://api.github.com/repos/${{ github.repository }}/contents/status.json?ref=status" -o previous-status.json || echo '{}' > previous-status.json
       - name: Check the websites
         env:
           SITES_JSON: ${{ secrets.SITES_JSON }}
